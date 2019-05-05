@@ -15,13 +15,15 @@
   </head>
   <body>
     <!--Controls for changing the level-->
-    Path length:<input id="input_path_length" type="text" value="12"/>
-    Max path width: <input id="input_width" type="text" value="10"/>
-    Max path height: <input id="input_height" type="text" value="10"/>
-    Offshoot count:<input id="input_offshoot_count" type="text" value="14"/>
-    Use emoji:<input id="input_use_emoji" type="checkbox" value="false"/>
-    Show path:<input id="input_show_path" type="checkbox" value="false"/>
-    <button id="button_generate" onClick="renderLevel()">Generate</button>
+    Path length: <input id="input_path_length" type="text" value="12"/><br/>
+    Max path width: <input id="input_width" type="text" value="10"/><br/>
+    Max path height: <input id="input_height" type="text" value="10"/><br/>
+    Offshoot count: <input id="input_offshoot_count" type="text" value="14"/><br/>
+    Connect offshoots: <input id="input_connect_offshoots" type="checkbox" value="true"/><br/>
+    <button id="button_generate" onClick="renderLevel(false)">Generate</button><br/>
+    <br/>
+    Use emoji: <input id="input_use_emoji" type="checkbox" value="false" onClick="renderLevel(true)"/><br/>
+    Show path: <input id="input_show_path" type="checkbox" value="false" onClick="renderLevel(true)"/><br/>
     
     <!--The level will be put into this container-->
     <br/>
