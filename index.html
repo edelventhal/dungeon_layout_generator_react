@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Dungeon Layout Generator</title>
+	<link rel="css/styles.css"/>
+	
+	<!--Load react-->
+    <script src="https://unpkg.com/react@16/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@16/umd/react-dom.development.js" crossorigin></script>
+	<script src="https://unpkg.com/babel-standalone@6/babel.min.js" crossorigin></script>
+	
+	<!--Load non-react js-->
+	<script src="js/level_generator.js"></script>
+  </head>
+  <body>
+	<!--Controls for changing the level-->
+	Path length:<input id="input_path_length" type="text" value="12"/>
+	Max path width: <input id="input_width" type="text" value="10"/>
+	Max path height: <input id="input_height" type="text" value="10"/>
+	Offshoot count:<input id="input_offshoot_count" type="text" value="14"/>
+	<button id="button_generate" onClick="renderLevel()">Generate</button>
+	
+	<!--The level will be put into this container-->
+    <div id="level_container"></div>
+	
+	<!--Load react classes -->
+	<script src="js/react/room.js" type="text/jsx"></script>
+	<script src="js/react/level.js" type="text/jsx"></script>
+	<script src="js/react/kickoff.js" type="text/jsx"></script>
+	
+	<!--Show an initial level-->
+	<script type="text/jsx">
+		renderLevel();
+	</script>
+  </body>
+</html>
