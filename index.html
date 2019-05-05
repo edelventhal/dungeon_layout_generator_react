@@ -19,10 +19,12 @@
     Max path width: <input id="input_width" type="text" value="10"/>
     Max path height: <input id="input_height" type="text" value="10"/>
     Offshoot count:<input id="input_offshoot_count" type="text" value="14"/>
+    Use emoji:<input id="input_use_emoji" type="checkbox" value="false"/>
     <button id="button_generate" onClick="renderLevel()">Generate</button>
     
     <!--The level will be put into this container-->
-    <div id="level_container"></div>
+    <br/>
+    <div id="level_container" class="levelContainer"></div>
     
     <!--Load react classes -->
     <script src="js/react/room.js" type="text/jsx"></script>

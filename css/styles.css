@@ -2,9 +2,31 @@
 {
     font-size:30px;
     margin: 0px 0px 0px 0px;
+    display:inline-block;
+    width:30px;
+    height:30px;
 }
 
 .levelRow
 {
-    margin-bottom:-10px;
+    margin-bottom:-6px;
+    display:block;
+}
+
+.empty
+{
+    background-color:white;
+}
+
+.full
+{
+    background-color:black;
+}
+
+.levelContainer
+{
+    display:inline-block;
+    border-width:2px;
+    border-color:black;
+    border-style:solid;
 }

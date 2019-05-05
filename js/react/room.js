@@ -2,7 +2,9 @@ class Room extends React.Component
 {
     render()
     {
+        let className = "levelRoomSpan";
         let val = "";
+        
         if ( this.props.isStart )
         {
             val = "🚹";
@@ -11,13 +13,17 @@ class Room extends React.Component
         {
             val = "🆚";
         }
-        else 
+        else if ( this.props.usesEmoji )
         {
             val = this.props.isOpen ? "🔲" : "⬛️";
         }
+        else
+        {
+            className += " " + ( this.props.isOpen ? "empty" : "full" );
+        }
         
         return (
-            <span className="levelRoomSpan">{val}</span>
+            <span className={className}>{val}</span>
         );
     }
 }

@@ -6,7 +6,8 @@ class Level extends React.Component
         
         this.state = 
         {
-            data: LevelGenerator.createLevel( props.width, props.height, props.pathLength, props.offshootCount )
+            data: LevelGenerator.createLevel( props.width, props.height, props.pathLength, props.offshootCount ),
+            usesEmoji: props.usesEmoji
         };
     }
     
@@ -19,6 +20,7 @@ class Level extends React.Component
                 isStart={this.state.data.startCoordinate.x === roomPos.x && this.state.data.startCoordinate.y === roomPos.y}
                 isBoss={this.state.data.endCoordinate.x === roomPos.x && this.state.data.endCoordinate.y === roomPos.y}
                 isOpen={this.state.data.roomExists( roomPos )}
+                usesEmoji={this.state.usesEmoji}
             />
         );
     }
