@@ -23,6 +23,11 @@
     background-color:black;
 }
 
+.path
+{
+    background-color:green;
+}
+
 .levelContainer
 {
     display:inline-block;

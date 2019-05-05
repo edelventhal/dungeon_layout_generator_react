@@ -4,11 +4,10 @@ class Level extends React.Component
     {
         super(props);
         
-        this.state = 
-        {
-            data: LevelGenerator.createLevel( props.width, props.height, props.pathLength, props.offshootCount ),
-            usesEmoji: props.usesEmoji
-        };
+        //call setState manually before rendering
+        //{
+            // data: LevelGenData object
+        //
     }
     
     renderRoom( roomPos )
@@ -20,7 +19,8 @@ class Level extends React.Component
                 isStart={this.state.data.startCoordinate.x === roomPos.x && this.state.data.startCoordinate.y === roomPos.y}
                 isBoss={this.state.data.endCoordinate.x === roomPos.x && this.state.data.endCoordinate.y === roomPos.y}
                 isOpen={this.state.data.roomExists( roomPos )}
-                usesEmoji={this.state.usesEmoji}
+                isOnPath={this.props.showPath && this.state.data.isOnPath( roomPos )}
+                usesEmoji={this.props.usesEmoji}
             />
         );
     }
@@ -29,16 +29,19 @@ class Level extends React.Component
     {
         let arr = [];
         
-        for ( let y = this.state.data.bounds.min.y - 1; y <= this.state.data.bounds.max.y + 1; y++ )
+        if ( this.state && this.state.data )
         {
-            let children = [];
-            
-            for ( let x = this.state.data.bounds.min.x - 1; x <= this.state.data.bounds.max.x + 1; x++ )
+            for ( let y = this.state.data.bounds.min.y - 1; y <= this.state.data.bounds.max.y + 1; y++ )
             {
-                children.push( this.renderRoom( new Coordinate( x, y ) ) );
-            }
+                let children = [];
             
-            arr.push(<div key={"row_" + y} className="levelRow">{children}</div>);
+                for ( let x = this.state.data.bounds.min.x - 1; x <= this.state.data.bounds.max.x + 1; x++ )
+                {
+                    children.push( this.renderRoom( new Coordinate( x, y ) ) );
+                }
+            
+                arr.push(<div key={"row_" + y} className="levelRow">{children}</div>);
+            }
         }
         
         return arr;
