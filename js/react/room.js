@@ -17,7 +17,7 @@ class Room extends React.Component
         }
 		
 		return (
-	        <span>{val}</span>
+	        <span className="levelRoomSpan">{val}</span>
 		);
 	}
 }
