@@ -29,11 +29,11 @@ class Level extends React.Component
     {
         let arr = [];
         
-        for ( let y = this.state.data.bounds.min.y; y <= this.state.data.bounds.max.y; y++ )
+        for ( let y = this.state.data.bounds.min.y - 1; y <= this.state.data.bounds.max.y + 1; y++ )
         {
             let children = [];
             
-            for ( let x = this.state.data.bounds.min.x; x <= this.state.data.bounds.max.x; x++ )
+            for ( let x = this.state.data.bounds.min.x - 1; x <= this.state.data.bounds.max.x + 1; x++ )
             {
                 children.push( this.renderRoom( new Coordinate( x, y ) ) );
             }
