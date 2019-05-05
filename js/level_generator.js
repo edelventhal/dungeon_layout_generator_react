@@ -219,152 +219,152 @@ let LevelGenData = function( startCoordinate, maxSize )
 
 let LevelGenerator =
 {
-	findValidCoordinates:function( data, origin, ignoreBounds )
-	{
-	    let validCoordinates = [];
-	    for ( let dirIndex = 0; dirIndex < DIRECTION_DELTAS.length; dirIndex++ )
-	    {
-	        let c = origin.createSum( DIRECTION_DELTAS[ dirIndex ] );
+    findValidCoordinates:function( data, origin, ignoreBounds )
+    {
+        let validCoordinates = [];
+        for ( let dirIndex = 0; dirIndex < DIRECTION_DELTAS.length; dirIndex++ )
+        {
+            let c = origin.createSum( DIRECTION_DELTAS[ dirIndex ] );
         
-	        if ( ( ignoreBounds || data.bounds.canContainCoordinate( c ) ) &&
-	            !data.roomExists( c ) && !data.coordinateIsClosed( c ) && c.x >= data.startCoordinate.x )
-	        {
-	            validCoordinates.push( c );
-	        }
-	    }
+            if ( ( ignoreBounds || data.bounds.canContainCoordinate( c ) ) &&
+                !data.roomExists( c ) && !data.coordinateIsClosed( c ) && c.x >= data.startCoordinate.x )
+            {
+                validCoordinates.push( c );
+            }
+        }
     
-	    return validCoordinates;
-	},
+        return validCoordinates;
+    },
 
-	getNewRoomCoordinate:function( data, origin, ignorePathStack, ignoreBounds )
-	{
-	    //find valid coordinates only considering bounds and room collisions
-	    let possibleNeighborCoordinates = this.findValidCoordinates( data, origin, ignoreBounds );
-	    let validCoordinates = [];
+    getNewRoomCoordinate:function( data, origin, ignorePathStack, ignoreBounds )
+    {
+        //find valid coordinates only considering bounds and room collisions
+        let possibleNeighborCoordinates = this.findValidCoordinates( data, origin, ignoreBounds );
+        let validCoordinates = [];
     
-	    //then, using these coordinates, search through neighbors of each option as well,
-	    //this avoids the rooms ever touching each other (forcing snakes)
-	    for ( let neighborCoordinateIndex = 0; neighborCoordinateIndex < possibleNeighborCoordinates.length; neighborCoordinateIndex++ )
-	    {
-	        let neighborCoordinate = possibleNeighborCoordinates[ neighborCoordinateIndex ];
+        //then, using these coordinates, search through neighbors of each option as well,
+        //this avoids the rooms ever touching each other (forcing snakes)
+        for ( let neighborCoordinateIndex = 0; neighborCoordinateIndex < possibleNeighborCoordinates.length; neighborCoordinateIndex++ )
+        {
+            let neighborCoordinate = possibleNeighborCoordinates[ neighborCoordinateIndex ];
         
-	        //a room must have 3 possible neighbors to be valid – this means it only touches the origin room
-	        //in this case, we don't worry about bounds, because anything out of bounds is considered empty
-	        let validNeighborCoordinates = this.findValidCoordinates( data, neighborCoordinate, true )
-	        if ( validNeighborCoordinates.length >= DIRECTION_DELTAS.length - 1 )
-	        {
-	            validCoordinates.push( neighborCoordinate );
-	        }
-	    }
+            //a room must have 3 possible neighbors to be valid – this means it only touches the origin room
+            //in this case, we don't worry about bounds, because anything out of bounds is considered empty
+            let validNeighborCoordinates = this.findValidCoordinates( data, neighborCoordinate, true )
+            if ( validNeighborCoordinates.length >= DIRECTION_DELTAS.length - 1 )
+            {
+                validCoordinates.push( neighborCoordinate );
+            }
+        }
     
-	    //if we have no coordinates, we need to backtrack and pop this room
-	    if ( validCoordinates.length <= 0 )
-	    {
-	        if ( ignorePathStack || !data.canPopPathStack() )
-	        {
-	            return null;
-	        }
+        //if we have no coordinates, we need to backtrack and pop this room
+        if ( validCoordinates.length <= 0 )
+        {
+            if ( ignorePathStack || !data.canPopPathStack() )
+            {
+                return null;
+            }
         
-	        data.closeCoordinate( origin );
-	        return this.getNewRoomCoordinate( data, data.popPathStack(), ignorePathStack );
-	    }
+            data.closeCoordinate( origin );
+            return this.getNewRoomCoordinate( data, data.popPathStack(), ignorePathStack );
+        }
     
-	    //now choose a random valid coordinate, and add the room there
-	    let newCoordinate = validCoordinates[ Math.floor( Math.random() * validCoordinates.length ) ];
-	    if ( !ignorePathStack )
-	    {
-	        data.addToPathStack( newCoordinate );
-	    }
-	    return newCoordinate;
-	},
+        //now choose a random valid coordinate, and add the room there
+        let newCoordinate = validCoordinates[ Math.floor( Math.random() * validCoordinates.length ) ];
+        if ( !ignorePathStack )
+        {
+            data.addToPathStack( newCoordinate );
+        }
+        return newCoordinate;
+    },
 
-	createOffshoots:function( data, offshootCount )
-	{
-	    //copy over the path stack into a valid coordinates list we can modify safely
-	    let validOffshootCoordinates = [];
-	    for ( let pathIndex = 0; pathIndex < data.pathStack.length; pathIndex++ )
-	    {
-	        let coordinate = data.pathStack[ pathIndex ];
-	        if ( ( coordinate.x !== data.startCoordinate.x || coordinate.y !== data.startCoordinate.y ) &&
-	             ( coordinate.x !== data.endCoordinate.x   || coordinate.y !== data.endCoordinate.y   ) )
-	        {
-	            validOffshootCoordinates.push( coordinate );
-	        }
-	    }
+    createOffshoots:function( data, offshootCount )
+    {
+        //copy over the path stack into a valid coordinates list we can modify safely
+        let validOffshootCoordinates = [];
+        for ( let pathIndex = 0; pathIndex < data.pathStack.length; pathIndex++ )
+        {
+            let coordinate = data.pathStack[ pathIndex ];
+            if ( ( coordinate.x !== data.startCoordinate.x || coordinate.y !== data.startCoordinate.y ) &&
+                 ( coordinate.x !== data.endCoordinate.x   || coordinate.y !== data.endCoordinate.y   ) )
+            {
+                validOffshootCoordinates.push( coordinate );
+            }
+        }
     
-	    //create offshoots as long as we haven't made as many as want and there are possible locations left
-	    let createdOffshootCount = 0;
-	    while ( createdOffshootCount < offshootCount && validOffshootCoordinates.length > 0 )
-	    {
-	        let coordIndex = Math.floor( Math.random() * validOffshootCoordinates.length );
-	        let coordinate = validOffshootCoordinates[ coordIndex ];
-	        validOffshootCoordinates.splice( coordIndex, 1 );
-	        coordinate = this.getNewRoomCoordinate( data, coordinate, true, !BOUND_OFFSHOOTS );
+        //create offshoots as long as we haven't made as many as want and there are possible locations left
+        let createdOffshootCount = 0;
+        while ( createdOffshootCount < offshootCount && validOffshootCoordinates.length > 0 )
+        {
+            let coordIndex = Math.floor( Math.random() * validOffshootCoordinates.length );
+            let coordinate = validOffshootCoordinates[ coordIndex ];
+            validOffshootCoordinates.splice( coordIndex, 1 );
+            coordinate = this.getNewRoomCoordinate( data, coordinate, true, !BOUND_OFFSHOOTS );
 
-	        if ( coordinate )
-	        {
-	            data.addToLevel( coordinate );
-	            validOffshootCoordinates.push( coordinate );
-	            createdOffshootCount++;
-	        }
-	    }
+            if ( coordinate )
+            {
+                data.addToLevel( coordinate );
+                validOffshootCoordinates.push( coordinate );
+                createdOffshootCount++;
+            }
+        }
     
-	    // if ( createdOffshootCount < offshootCount )
-	    // {
-	    //     console.log( "Could not create " + offshootCount + " offshoots, only managed to create " + createdOffshootCount );
-	    // }
-	},
+        // if ( createdOffshootCount < offshootCount )
+        // {
+        //     console.log( "Could not create " + offshootCount + " offshoots, only managed to create " + createdOffshootCount );
+        // }
+    },
 
-	createLevel:function( width, height, pathLength, offshootCount )
-	{
-	    //constrain the path length so that it doesn't go too far for these dimensions
-	    pathLength = Math.min( pathLength, width + height - 2 );
+    createLevel:function( width, height, pathLength, offshootCount )
+    {
+        //constrain the path length so that it doesn't go too far for these dimensions
+        pathLength = Math.min( pathLength, width + height - 2 );
     
-	    //create the LevelGenData
-	    let data = new LevelGenData( new Coordinate( 0, 0 ), new Coordinate( width, height ) );
+        //create the LevelGenData
+        let data = new LevelGenData( new Coordinate( 0, 0 ), new Coordinate( width, height ) );
     
-	    //begin with the startCoordinate
-	    let coordinate = data.startCoordinate;
+        //begin with the startCoordinate
+        let coordinate = data.startCoordinate;
 
-	    //we start at a length of 1 because we already have the starting room
-	    for ( let currentLength = 1; currentLength <= pathLength; currentLength++ )
-	    {
-	        let newCoordinate = this.getNewRoomCoordinate( data, coordinate );
+        //we start at a length of 1 because we already have the starting room
+        for ( let currentLength = 1; currentLength <= pathLength; currentLength++ )
+        {
+            let newCoordinate = this.getNewRoomCoordinate( data, coordinate );
         
-	        //in case for some reason we were unable to generate another path, break out (which will use whatever the last successful path was for the endCoordinate)
-	        if ( !newCoordinate )
-	        {
-	            console.log( "Failed to create full path!" );
-	            break;
-	        }
+            //in case for some reason we were unable to generate another path, break out (which will use whatever the last successful path was for the endCoordinate)
+            if ( !newCoordinate )
+            {
+                console.log( "Failed to create full path!" );
+                break;
+            }
         
-	        //assign the new coordinate to be the current one tracked
-	        coordinate = newCoordinate;
+            //assign the new coordinate to be the current one tracked
+            coordinate = newCoordinate;
         
-	        //place the new coordinate into the level
-	        data.addToLevel( coordinate );
+            //place the new coordinate into the level
+            data.addToLevel( coordinate );
         
-	        //Every part of the path except the boss room (the last room in the path) is a valid offshoot coordinate
-	        // if ( currentLength < pathLength )
-	        // {
-	        //     validOffshootCoordinates.push( coordinate );
-	        // }
-	    }
+            //Every part of the path except the boss room (the last room in the path) is a valid offshoot coordinate
+            // if ( currentLength < pathLength )
+            // {
+            //     validOffshootCoordinates.push( coordinate );
+            // }
+        }
     
-	    //the last room on the path is the boss room
-	    if ( coordinate )
-	    {
-	        data.endCoordinate = coordinate;
-	        //level[ getKey( coordinate ) ] = coordinate; //unnecessary I think
-	    }
+        //the last room on the path is the boss room
+        if ( coordinate )
+        {
+            data.endCoordinate = coordinate;
+            //level[ getKey( coordinate ) ] = coordinate; //unnecessary I think
+        }
     
-	    //now we can make offshoot rooms
-	    this.createOffshoots( data, offshootCount );
+        //now we can make offshoot rooms
+        this.createOffshoots( data, offshootCount );
     
-	    //make sure the exit is open in the proper direction
-	    data.ensureStartOpenDirection();
+        //make sure the exit is open in the proper direction
+        data.ensureStartOpenDirection();
     
-	    //finally, return the data
-	    return data;
-	}
+        //finally, return the data
+        return data;
+    }
 };

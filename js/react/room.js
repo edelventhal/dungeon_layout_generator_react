@@ -1,8 +1,8 @@
 class Room extends React.Component
 {
-	render()
-	{
-		let val = "";
+    render()
+    {
+        let val = "";
         if ( this.props.isStart )
         {
             val = "🚹";
@@ -15,9 +15,9 @@ class Room extends React.Component
         {
             val = this.props.isOpen ? "🔲" : "⬛️";
         }
-		
-		return (
-	        <span className="levelRoomSpan">{val}</span>
-		);
-	}
+        
+        return (
+            <span className="levelRoomSpan">{val}</span>
+        );
+    }
 }
