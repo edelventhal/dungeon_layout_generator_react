@@ -164,45 +164,9 @@ let LevelGenData = function( startCoordinate, maxSize )
         return this.roomExists( badCoordinate );
     };
     
-    //if the start has an opening in the wrong direction, this will flip the entire level
-    // this.ensureStartOpenDirection = function()
-    // {
-    //     //with a bad start opening direction, we need to flip the level over the X axis
-    //     if ( this.hasBadStartOpenDirection() )
-    //     {
-    //         //flip the level over by making the proper axis negative
-    //         let newLevel = {};
-    //         for ( let key in this.level )
-    //         {
-    //             let oldCoordinate = this.level[ key ];
-    //             let newCoordinate = new Coordinate( -oldCoordinate.x, oldCoordinate.y, oldCoordinate.cost );
-    //             newLevel[ newCoordinate.getKey() ] = newCoordinate;
-    //         }
-    //
-    //         this.startCoordinate = new Coordinate( -this.startCoordinate.x, this.startCoordinate.y, this.startCoordinate.cost );
-    //         this.endCoordinate   = new Coordinate( -this.endCoordinate.x  , this.endCoordinate.y, this.endCoordinate.cost );
-    //
-    //         this.bounds = new ExpandableBounds( this.bounds.maxSize,
-    //                                             new Coordinate( -this.bounds.max.x, this.bounds.min.y ),
-    //                                             new Coordinate( -this.bounds.min.x, this.bounds.max.y ) );
-    //
-    //         this.level = newLevel;
-    //     }
-    // };
-    
     this.toString = function()
     {
         let levelString = "";
-        // let printBounds = this.bounds.copy();
-        // printBounds.updateWithCoordinate( this.startCoordinate );
-        // printBounds.updateWithCoordinate( this.endCoordinate );
-        
-        // console.log( "Start: (" + ( this.startCoordinate.x - this.bounds.min.x ) + "," + ( this.startCoordinate.y - this.bounds.min.y ) +
-        //              ") End: (" + ( this.endCoordinate.x - this.bounds.min.x ) + "," + ( this.endCoordinate.y - this.bounds.min.y ) +
-        //              ") Min: (" + ( this.bounds.min.x - this.bounds.min.x ) + "," + ( this.bounds.min.y  - this.bounds.min.y ) +
-        //              ") Max: (" + ( this.bounds.max.x - this.bounds.min.x ) + "," + ( this.bounds.max.y - this.bounds.min.y ) +
-        //              ") Size: (" + this.bounds.getSize().x + "," + this.bounds.getSize().y + ")" );
-        // console.log( JSON.stringify( this.level ) );
         
         for ( let y = this.bounds.min.y; y <= this.bounds.max.y; y++ )
         {
@@ -444,9 +408,6 @@ let LevelGenerator =
     
         //now we can make offshoot rooms
         this.createOffshoots( data, offshootCount, allowAdjacentOffshoots );
-    
-        //make sure the exit is open in the proper direction
-        //data.ensureStartOpenDirection();
     
         //finally, return the data
         return data;
