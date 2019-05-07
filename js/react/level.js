@@ -12,15 +12,19 @@ class Level extends React.Component
     
     renderRoom( roomPos )
     {
+        let roomKey = roomPos.getKey();
+        
         return (
             <Room
-                key={"room_" + roomPos.toString()}
+                key={"room_" + roomKey}
                 className="levelRoom"
                 isStart={this.state.data.startCoordinate.x === roomPos.x && this.state.data.startCoordinate.y === roomPos.y}
                 isBoss={this.state.data.endCoordinate.x === roomPos.x && this.state.data.endCoordinate.y === roomPos.y}
                 isOpen={this.state.data.roomExists( roomPos )}
                 isOnPath={this.props.showPath && this.state.data.isOnPath( roomPos )}
+                cost={this.state.data.level[roomKey] ? this.state.data.level[roomKey].cost : 0}
                 usesEmoji={this.props.usesEmoji}
+                showsCost={this.props.showsCost}
             />
         );
     }

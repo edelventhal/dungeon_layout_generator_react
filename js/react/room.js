@@ -20,6 +20,11 @@ class Room extends React.Component
         else
         {
             className += " " + ( this.props.isOnPath ? "path" : ( this.props.isOpen ? "empty" : "full" ) );
+            
+            if ( this.props.showsCost )
+            {
+                val = this.props.cost;
+            }
         }
         
         return (

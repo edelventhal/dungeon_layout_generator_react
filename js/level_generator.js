@@ -1,16 +1,18 @@
 let BOUND_OFFSHOOTS = false;
 
-let Coordinate = function( xOrCoordinate, y )
+let Coordinate = function( xOrCoordinate, y, cost )
 {
     if ( typeof( xOrCoordinate ) === "object" )
     {
         this.x = xOrCoordinate.x;
         this.y = xOrCoordinate.y;
+        this.cost = xOrCoordinate.cost;
     }
     else 
     {
         this.x = xOrCoordinate;
         this.y = y;
+        this.cost = cost || 0;
     }
     
     this.getKey = function()
@@ -20,7 +22,7 @@ let Coordinate = function( xOrCoordinate, y )
     
     this.toString = function()
     {
-        return "(" + this.x + "," + this.y + ")";
+        return "(" + this.x + "," + this.y + ") - " + this.cost;
     };
     
     this.copy = function()
@@ -28,10 +30,15 @@ let Coordinate = function( xOrCoordinate, y )
         return new Coordinate( this );
     };
     
-    this.createSum = function( otherCoordinate )
+    this.createSum = function( otherCoordinate, costDelta )
     {
-        return new Coordinate( this.x + otherCoordinate.x, this.y + otherCoordinate.y );
+        return new Coordinate( this.x + otherCoordinate.x, this.y + otherCoordinate.y, this.cost + ( costDelta || 0 ) );
     };
+    
+    this.equals = function( otherCoordinate )
+    {
+        return this.x === otherCoordinate.x && this.y === otherCoordinate.y;
+    }
 };
 
 let DIRECTION_DELTAS =
@@ -143,9 +150,9 @@ let LevelGenData = function( startCoordinate, maxSize )
     
     this.addToLevel = function( coordinate )
     {
-        this.level[ coordinate.getKey() ] = coordinate.copy();
+        let key = coordinate.getKey();
+        this.level[ key ] = coordinate.copy();
         this.bounds.updateWithCoordinate( coordinate );
-        //console.log( "Added " + coordinate.toString() + " to the level, the bounds are now " + this.bounds.toString() );
     };
     
     //we don't allow the start to be open from the left side
@@ -168,12 +175,12 @@ let LevelGenData = function( startCoordinate, maxSize )
             for ( let key in this.level )
             {
                 let oldCoordinate = this.level[ key ];
-                let newCoordinate = new Coordinate( -oldCoordinate.x, oldCoordinate.y );
+                let newCoordinate = new Coordinate( -oldCoordinate.x, oldCoordinate.y, oldCoordinate.cost );
                 newLevel[ newCoordinate.getKey() ] = newCoordinate;
             }
         
-            this.startCoordinate = new Coordinate( -this.startCoordinate.x, this.startCoordinate.y );
-            this.endCoordinate   = new Coordinate( -this.endCoordinate.x  , this.endCoordinate.y   );
+            this.startCoordinate = new Coordinate( -this.startCoordinate.x, this.startCoordinate.y, this.startCoordinate.cost );
+            this.endCoordinate   = new Coordinate( -this.endCoordinate.x  , this.endCoordinate.y, this.endCoordinate.cost );
         
             this.bounds = new ExpandableBounds( this.bounds.maxSize,
                                                 new Coordinate( -this.bounds.max.x, this.bounds.min.y ),
@@ -219,6 +226,45 @@ let LevelGenData = function( startCoordinate, maxSize )
         return levelString;
     };
     
+    this.copy = function()
+    {
+        let clone = new LevelGenData( this.startCoordinate, this.bounds.maxSize );
+        clone.endCoordinate = this.endCoordinate.copy();
+        clone.bounds = this.bounds.copy();
+        
+        clone.level = {};
+        for ( let key in this.level )
+        {
+            clone.level[key] = this.level[key].copy();
+        }
+        
+        clone.pathStack = [];
+        for ( let stackIndex = 0; stackIndex < this.pathStack.length; stackIndex++ )
+        {
+            clone.pathStack.push( this.pathStack[stackIndex].copy() );
+        }
+        
+        clone.pathLookup = {};
+        for ( let key in this.pathLookup )
+        {
+            clone.pathLookup[key] = this.pathLookup[key];
+        }
+        
+        clone.open = [];
+        for ( let openIndex = 0; openIndex < this.open.length; openIndex++ )
+        {
+            clone.open.push( this.open[openIndex].copy() );
+        }
+        
+        clone.closed = {};
+        for ( let key in this.closed )
+        {
+            clone.closed[key] = this.closed[key];
+        }
+        
+        return clone;
+    }
+    
     //we always have the start coordinate in the level
     this.addToLevel( this.startCoordinate );
     
@@ -228,18 +274,33 @@ let LevelGenData = function( startCoordinate, maxSize )
 
 let LevelGenerator =
 {
-    findValidCoordinates:function( data, origin, ignoreBounds )
+    findValidNeighborCoordinates:function( data, origin, ignoreBounds, allowAdjacentNeighbors )
     {
         let validCoordinates = [];
+        
+        //first, add every valid niegbor coordinate 
+        let possibleNeighborCoordinates = [];
         for ( let dirIndex = 0; dirIndex < DIRECTION_DELTAS.length; dirIndex++ )
         {
-            let c = origin.createSum( DIRECTION_DELTAS[ dirIndex ] );
+            //add 1 to the cost for each of these, as they may be added to the level
+            let c = origin.createSum( DIRECTION_DELTAS[ dirIndex ], 1 );
         
             if ( this.isValidCoordinate( data, c, ignoreBounds ) )
+            {
+                possibleNeighborCoordinates.push( c );
+            }
+        }
+        
+        //loop through those and check each of their neighbors - this is for avoiding snaking or shortening the path
+        for ( let neighborCoordinateIndex = 0; neighborCoordinateIndex < possibleNeighborCoordinates.length; neighborCoordinateIndex++ )
+        {
+            let c = possibleNeighborCoordinates[ neighborCoordinateIndex ];
+            if ( this.canCoordinateBeAdjacentToNeighbors( data, c, origin, ignoreBounds, allowAdjacentNeighbors ) )
             {
                 validCoordinates.push( c );
             }
         }
+        
     
         return validCoordinates;
     },
@@ -249,40 +310,50 @@ let LevelGenerator =
         return ( ( ignoreBounds || data.bounds.canContainCoordinate( c ) ) &&
         !data.roomExists( c ) && !data.coordinateIsClosed( c ) && c.x >= data.startCoordinate.x );
     },
-
-    getNewRoomCoordinate:function( data, origin, ignorePathStack, ignoreBounds, allowAdjacentNeigbors )
+    
+    canCoordinateBeAdjacentToNeighbors:function( data, c, origin, ignoreBounds, allowAdjacentNeighbors )
     {
-        //find valid coordinates only considering bounds and room collisions
-        let possibleNeighborCoordinates = this.findValidCoordinates( data, origin, ignoreBounds );
-        let validCoordinates = [];
-    
-        //then, using these coordinates, search through neighbors of each option as well,
-        //this avoids the rooms ever touching each other (forcing snakes)
-        for ( let neighborCoordinateIndex = 0; neighborCoordinateIndex < possibleNeighborCoordinates.length; neighborCoordinateIndex++ )
+        //go through each direction, check every neighbor.
+        //they must either not exist, or we must allow adjacent neighbors and connecting must not shorten the path
+        for ( let directionDeltaIndex = 0; directionDeltaIndex < DIRECTION_DELTAS.length; directionDeltaIndex++ )
         {
-            let neighborCoordinate = possibleNeighborCoordinates[ neighborCoordinateIndex ];
-    
-            let validNeighborCount = 0;
-            for ( let directionDeltaIndex = 0; directionDeltaIndex < DIRECTION_DELTAS.length; directionDeltaIndex++ )
-            {
-                let otherNeighborCoordinate = neighborCoordinate.createSum( DIRECTION_DELTAS[ directionDeltaIndex ] );
-                if ( this.isValidCoordinate( data, otherNeighborCoordinate, ignoreBounds ) )
-                {
-                    validNeighborCount++;
-                }
-                //we might want to allow double connections to neighbors... but never allow double connections to the path
-                else if ( allowAdjacentNeigbors && !data.isOnPath( otherNeighborCoordinate ) )
-                {
-                    validNeighborCount++;
-                }
-            }
+            let neighborCoordinate = c.createSum( DIRECTION_DELTAS[ directionDeltaIndex ] );
             
-            //if we have 3 neighbors that we can use, then we're in business and this is an actual valid option
-            if ( validNeighborCount >= DIRECTION_DELTAS.length - 1 )
+            //don't bother if the neighbor is the origin coordinate – we know that's already been placed
+            if ( !neighborCoordinate.equals( origin ) )
             {
-                validCoordinates.push( neighborCoordinate );
+                //we only care about invalid (non-empty) coordinates
+                if ( !this.isValidCoordinate( data, neighborCoordinate, true ) )
+                {
+                    if ( allowAdjacentNeighbors )
+                    {
+                        let neighborKey = neighborCoordinate.getKey();
+                
+                        if ( data.level[ neighborKey ] )
+                        {
+                            let otherCost = data.level[ neighborKey ].cost;
+                    
+                            if ( Math.abs( otherCost - c.cost ) > 1 )
+                            {
+                                return false;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
             }
         }
+        
+        return true;
+    },
+
+    getNewCoordinate:function( data, origin, ignorePathStack, ignoreBounds, allowAdjacentNeighbors )
+    {
+        //find valid coordinates only considering bounds and room collisions
+        let validCoordinates = this.findValidNeighborCoordinates( data, origin, ignoreBounds, allowAdjacentNeighbors );
     
         //if we have no coordinates, we need to backtrack and pop this room
         if ( validCoordinates.length <= 0 )
@@ -293,7 +364,7 @@ let LevelGenerator =
             }
         
             data.closeCoordinate( origin );
-            return this.getNewRoomCoordinate( data, data.popPathStack(), ignorePathStack, allowAdjacentNeigbors );
+            return this.getNewCoordinate( data, data.popPathStack(), ignorePathStack, allowAdjacentNeighbors );
         }
     
         //now choose a random valid coordinate, and add the room there
@@ -307,11 +378,11 @@ let LevelGenerator =
 
     createOffshoots:function( data, offshootCount, allowAdjacentOffshoots )
     {
-        //copy over the path stack into a valid coordinates list we can modify safely
+        //copy over all existing coordinates into a valid coordinates list we can modify safely
         let validOffshootCoordinates = [];
-        for ( let pathIndex = 0; pathIndex < data.pathStack.length; pathIndex++ )
+        for ( let key in data.level )
         {
-            let coordinate = data.pathStack[ pathIndex ];
+            let coordinate = data.level[ key ];
             if ( ( coordinate.x !== data.startCoordinate.x || coordinate.y !== data.startCoordinate.y ) &&
                  ( coordinate.x !== data.endCoordinate.x   || coordinate.y !== data.endCoordinate.y   ) )
             {
@@ -323,23 +394,19 @@ let LevelGenerator =
         let createdOffshootCount = 0;
         while ( createdOffshootCount < offshootCount && validOffshootCoordinates.length > 0 )
         {
-            let coordIndex = Math.floor( Math.random() * validOffshootCoordinates.length );
-            let coordinate = validOffshootCoordinates[ coordIndex ];
-            validOffshootCoordinates.splice( coordIndex, 1 );
-            coordinate = this.getNewRoomCoordinate( data, coordinate, true, !BOUND_OFFSHOOTS, allowAdjacentOffshoots );
+            //get a random coordinate from the possible locations
+            let coordinate = validOffshootCoordinates.splice( Math.floor( Math.random() * validOffshootCoordinates.length ), 1 )[0];
+            
+            //try creating a new neighbor room from that location, if possible
+            let newCoordinate = this.getNewCoordinate( data, coordinate, true, !BOUND_OFFSHOOTS, allowAdjacentOffshoots );
 
-            if ( coordinate )
+            if ( newCoordinate )
             {
-                data.addToLevel( coordinate );
-                validOffshootCoordinates.push( coordinate );
+                data.addToLevel( newCoordinate );
+                validOffshootCoordinates.push( newCoordinate );
                 createdOffshootCount++;
             }
         }
-    
-        // if ( createdOffshootCount < offshootCount )
-        // {
-        //     console.log( "Could not create " + offshootCount + " offshoots, only managed to create " + createdOffshootCount );
-        // }
     },
 
     createLevel:function( width, height, pathLength, offshootCount, allowAdjacentOffshoots )
@@ -348,7 +415,7 @@ let LevelGenerator =
         pathLength = Math.min( pathLength, width + height - 2 );
     
         //create the LevelGenData
-        let data = new LevelGenData( new Coordinate( 0, 0 ), new Coordinate( width, height ) );
+        let data = new LevelGenData( new Coordinate( 0, 0, 0 ), new Coordinate( width, height, pathLength ) );
     
         //begin with the startCoordinate
         let coordinate = data.startCoordinate;
@@ -356,7 +423,7 @@ let LevelGenerator =
         //we start at a length of 1 because we already have the starting room
         for ( let currentLength = 1; currentLength <= pathLength; currentLength++ )
         {
-            let newCoordinate = this.getNewRoomCoordinate( data, coordinate );
+            let newCoordinate = this.getNewCoordinate( data, coordinate );
         
             //in case for some reason we were unable to generate another path, break out (which will use whatever the last successful path was for the endCoordinate)
             if ( !newCoordinate )
@@ -370,12 +437,6 @@ let LevelGenerator =
         
             //place the new coordinate into the level
             data.addToLevel( coordinate );
-        
-            //Every part of the path except the boss room (the last room in the path) is a valid offshoot coordinate
-            // if ( currentLength < pathLength )
-            // {
-            //     validOffshootCoordinates.push( coordinate );
-            // }
         }
     
         //the last room on the path is the boss room
