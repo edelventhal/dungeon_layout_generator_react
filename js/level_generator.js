@@ -375,17 +375,16 @@ let LevelGenerator =
         //begin with the startCoordinate
         let coordinate = data.startCoordinate;
 
-        let times = 0;
-        //we start at a length of 1 because we already have the starting room
-        for ( let currentLength = 1; currentLength <= pathLength; currentLength++ )
+        while ( data.pathStack.length < pathLength )
         {
             let newCoordinate = this.getNewCoordinate( data, coordinate );
-        
-            //in case for some reason we were unable to generate another path, break out (which will use whatever the last successful path was for the endCoordinate)
+                    
+            //in case for some reason we were unable to generate another path (a path that can't fit within the bounds),
+            //break out (which will use whatever the last successful path was for the endCoordinate)
             if ( !newCoordinate )
             {
-                console.log( "Failed to create full path!" );
-                break;
+                console.log( "Could not create a valid path with these parameters." );
+                return new LevelGenData( data.startCoordinate, data.bounds.maxSize );
             }
         
             //assign the new coordinate to be the current one tracked
@@ -393,18 +392,10 @@ let LevelGenerator =
         
             //place the new coordinate into the level
             data.addToLevel( coordinate );
-            
-            times++;
         }
-        
-        console.log( "Path length is " + data.pathStack.length + " went in there " + times );
     
-        //the last room on the path is the boss room
-        if ( coordinate )
-        {
-            data.endCoordinate = coordinate;
-            //level[ getKey( coordinate ) ] = coordinate; //unnecessary I think
-        }
+        //the last room on the path is the end
+        data.endCoordinate = coordinate;
     
         //now we can make offshoot rooms
         this.createOffshoots( data, offshootCount, allowAdjacentOffshoots );
