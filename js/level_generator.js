@@ -38,6 +38,33 @@ let Coordinate = function( xOrCoordinate, y, cost )
     this.equals = function( otherCoordinate )
     {
         return this.x === otherCoordinate.x && this.y === otherCoordinate.y;
+    };
+    
+    this.closeNeighbor = function( neighborCoordinate )
+    {
+        if ( !this.closed )
+        {
+            this.closed = {};
+        }
+        this.closed[neighborCoordinate.getKey()] = true;
+    };
+    
+    this.openNeighbor = function( neighborCoordinate )
+    {
+        if ( !this.closed )
+        {
+            return;
+        }
+        this.closed[neighborCoordinate.getKey()] = false;
+    };
+    
+    this.isNeighborClosed = function( neighborCoordinate )
+    {
+        if ( !this.closed )
+        {
+            return false;
+        }
+        return !!this.closed[neighborCoordinate.getKey()];
     }
 };
 
@@ -103,22 +130,12 @@ let LevelGenData = function( startCoordinate, maxSize )
     this.level = {};
     this.pathStack = [];
     this.pathLookup = {};
+    this.boundsStack = [];
     this.open = [];
-    this.closed = {};
     
     this.roomExists = function( coordinate )
     {
         return !!this.level[ coordinate.getKey() ];
-    };
-    
-    this.coordinateIsClosed = function( coordinate )
-    {
-        return !!this.closed[ coordinate.getKey() ];
-    };
-    
-    this.closeCoordinate = function( coordinate )
-    {
-        this.closed[ coordinate.getKey() ] = true;
     };
     
     this.popPathStack = function()
@@ -126,11 +143,23 @@ let LevelGenData = function( startCoordinate, maxSize )
         if ( this.canPopPathStack() )
         {
             let coordinate = this.pathStack.pop();
-            this.pathLookup[coordinate.getKey()] = false;
+            let key = coordinate.getKey();
+            this.pathLookup[key] = false;
+            delete( this.level[key] );
+            this.bounds = this.boundsStack.pop();
             return coordinate;
         }
         return null;
     };
+    
+    this.peekPathStack = function()
+    {
+        if ( this.canPopPathStack() )
+        {
+            return this.pathStack[ this.pathStack.length - 1 ];
+        }
+        return null;
+    }
     
     this.canPopPathStack = function()
     {
@@ -141,6 +170,7 @@ let LevelGenData = function( startCoordinate, maxSize )
     {
         this.pathStack.push( coordinate );
         this.pathLookup[coordinate.getKey()] = true;
+        this.boundsStack.push( this.bounds.copy() );
     };
     
     this.isOnPath = function( coordinate )
@@ -203,9 +233,11 @@ let LevelGenData = function( startCoordinate, maxSize )
         }
         
         clone.pathStack = [];
+        clone.boundsStack = [];
         for ( let stackIndex = 0; stackIndex < this.pathStack.length; stackIndex++ )
         {
             clone.pathStack.push( this.pathStack[stackIndex].copy() );
+            clone.boundsStack.push( this.boundsStack[stackIndex].copy() );
         }
         
         clone.pathLookup = {};
@@ -231,6 +263,7 @@ let LevelGenData = function( startCoordinate, maxSize )
     
     //we always have the start coordinate in the level
     this.addToLevel( this.startCoordinate );
+    this.addToPathStack( this.startCoordinate );
 };
 
 let LevelGenerator =
@@ -245,7 +278,7 @@ let LevelGenerator =
             //add 1 to the cost for each of these, as they may be added to the level
             let c = origin.createSum( DIRECTION_DELTAS[ dirIndex ], 1 );
         
-            if ( this.isValidCoordinate( data, c, ignoreBounds ) &&
+            if ( this.isValidCoordinate( data, c, origin, ignoreBounds ) &&
                  this.canCoordinateBeAdjacentToNeighbors( data, c, origin, ignoreBounds, allowAdjacentNeighbors ) )
             {
                 validCoordinates.push( c );
@@ -277,10 +310,10 @@ let LevelGenerator =
     //We're either ignoring the bounds or it's within the bounds, and
     //There is no room at that location, and
     //That location has not been closed (already processed)
-    isValidCoordinate:function( data, c, ignoreBounds )
+    isValidCoordinate:function( data, c, origin, ignoreBounds )
     {
         return ( ( ignoreBounds || data.bounds.canContainCoordinate( c ) ) &&
-                  !data.roomExists( c ) && !data.coordinateIsClosed( c ) );
+                  !data.roomExists( c ) && !origin.isNeighborClosed( c ) );
     },
     
     //A neighbor is acceptable if:
@@ -294,7 +327,7 @@ let LevelGenerator =
             return true;
         }
         
-        if ( this.isValidCoordinate( data, c, true ) )
+        if ( this.isValidCoordinate( data, c, origin, true ) )
         {
             return true;
         }
@@ -308,7 +341,7 @@ let LevelGenerator =
         return false;
     },
 
-    getNewCoordinate:function( data, origin, ignorePathStack, ignoreBounds, allowAdjacentNeighbors )
+    addNewCoordinate:function( data, origin, ignorePathStack, ignoreBounds, allowAdjacentNeighbors )
     {
         //find valid coordinates only considering bounds and room collisions
         let validCoordinates = this.findValidNeighborCoordinates( data, origin, ignoreBounds, allowAdjacentNeighbors );
@@ -321,8 +354,19 @@ let LevelGenerator =
                 return null;
             }
         
-            data.closeCoordinate( origin );
-            return this.getNewCoordinate( data, data.popPathStack(), ignorePathStack, allowAdjacentNeighbors );
+            //pop the stack. It's possible that this coordinate is already at the top of the stack – so peek at the next one
+            let poppedCoordinate = data.popPathStack();
+            if ( poppedCoordinate.equals( origin ) )
+            {
+                if ( !data.canPopPathStack() )
+                {
+                    return null;
+                }
+                poppedCoordinate = data.peekPathStack();
+            }
+            
+            poppedCoordinate.closeNeighbor( origin ); //we don't want to be able to try this exact neighbor again
+            return this.addNewCoordinate( data, poppedCoordinate, ignorePathStack, allowAdjacentNeighbors );
         }
     
         //now choose a random valid coordinate, and add the room there
@@ -331,6 +375,10 @@ let LevelGenerator =
         {
             data.addToPathStack( newCoordinate );
         }
+        
+        //place the new coordinate into the level
+        data.addToLevel( newCoordinate );
+        
         return newCoordinate;
     },
 
@@ -356,11 +404,10 @@ let LevelGenerator =
             let coordinate = validOffshootCoordinates.splice( Math.floor( Math.random() * validOffshootCoordinates.length ), 1 )[0];
             
             //try creating a new neighbor room from that location, if possible
-            let newCoordinate = this.getNewCoordinate( data, coordinate, true, !BOUND_OFFSHOOTS, allowAdjacentOffshoots );
+            let newCoordinate = this.addNewCoordinate( data, coordinate, true, !BOUND_OFFSHOOTS, allowAdjacentOffshoots );
 
             if ( newCoordinate )
             {
-                data.addToLevel( newCoordinate );
                 validOffshootCoordinates.push( newCoordinate );
                 createdOffshootCount++;
             }
@@ -375,9 +422,9 @@ let LevelGenerator =
         //begin with the startCoordinate
         let coordinate = data.startCoordinate;
 
-        while ( data.pathStack.length < pathLength )
+        while ( data.pathStack.length <= pathLength )
         {
-            let newCoordinate = this.getNewCoordinate( data, coordinate );
+            let newCoordinate = this.addNewCoordinate( data, coordinate );
                     
             //in case for some reason we were unable to generate another path (a path that can't fit within the bounds),
             //break out (which will use whatever the last successful path was for the endCoordinate)
@@ -389,9 +436,6 @@ let LevelGenerator =
         
             //assign the new coordinate to be the current one tracked
             coordinate = newCoordinate;
-        
-            //place the new coordinate into the level
-            data.addToLevel( coordinate );
         }
     
         //the last room on the path is the end
