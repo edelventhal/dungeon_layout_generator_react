@@ -81,6 +81,14 @@ let DIRECTION_DELTAS =
     new Coordinate( 0, -1 )
 ];
 
+let OPPOSITE_DIRECTION_DELTAS =
+[
+    DIRECTION_DELTAS[1],
+    DIRECTION_DELTAS[0],
+    DIRECTION_DELTAS[3],
+    DIRECTION_DELTAS[2]
+];
+
 let ExpandableBounds = function( maxSize, minCoordinate, maxCoordinate )
 {
     this.maxSize = maxSize.copy();
@@ -231,16 +239,15 @@ let LevelGenData = function( startCoordinate, maxSize )
     //merges data from another LevelGenData into this one
     this.merge = function( otherData )
     {
-        this.timesMerged = this.timesMerged || 0;
+        this.timesMerged = ( this.timesMerged || 0 ) + 1;
         
         //choose a random direction to add this other area to
-        let directionIndex = Math.floor( Math.random() * DIRECTION_DELTAS.length ) % 2; //0 and 2 are top and right, this is hacky...
+        let directionIndex = Math.floor( Math.random() * DIRECTION_DELTAS.length );
         let direction = DIRECTION_DELTAS[ directionIndex ];
-        let oppositeDirecton = DIRECTION_DELTAS[ ( directionIndex + 2 ) % DIRECTION_DELTAS.length ];
+        let oppositeDirecton = OPPOSITE_DIRECTION_DELTAS[ directionIndex ];
         let originalExtents = this.bounds.extentsCoordinates[ direction.getKey() ];
         let oppositeExents = otherData.bounds.extentsCoordinates[ oppositeDirecton.getKey() ]
         let offset = new Coordinate( originalExtents.x + direction.x - oppositeExents.x, originalExtents.y + direction.y - oppositeExents.y );
-        //let costOffset = this.level[originalExtents.getKey()].cost;
         
         for ( let y = otherData.bounds.min.y; y <= otherData.bounds.max.y; y++ )
         {
@@ -254,14 +261,12 @@ let LevelGenData = function( startCoordinate, maxSize )
                     
                     if ( !this.roomExists( otherCoord ) )
                     {
-                        otherCoord.cost = ( this.timesMerged + 1 );//costOffset;
+                        otherCoord.cost = String.fromCharCode( "A".charCodeAt(0) + this.timesMerged );
                         this.addToLevel( otherCoord );
                     }
                 }
             }
         }
-        
-        this.timesMerged++;
     };
     
     this.toString = function()
@@ -517,10 +522,6 @@ let LevelGenerator =
     
             //now we can make offshoot rooms
             this.createOffshoots( data, offshootCount, allowAdjacentOffshoots );
-            
-            console.log( data.toString() );
-            console.log( "Extents are " + JSON.stringify( data.bounds.extentsCoordinates ) );
-            console.log( "Start is " + data.startCoordinate );
     
             //combine this with existing data
             if ( fullData )
@@ -533,11 +534,6 @@ let LevelGenerator =
             }
         }
         
-        console.log( "------------FULL-----------" );
-        console.log( fullData.toString() );
-        console.log( "Extents are " + JSON.stringify( fullData.bounds.extentsCoordinates ) );
-        console.log( "Start is " + fullData.startCoordinate );
-    
         //finally, return the data
         return fullData;
     },
