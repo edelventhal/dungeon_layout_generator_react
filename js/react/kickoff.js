@@ -4,6 +4,7 @@ let renderLevel = function( visualRefreshOnly )
     let height = document.getElementById( "input_height" ).value;
     let pathLength = document.getElementById( "input_path_length" ).value;
     let offshootCount = document.getElementById( "input_offshoot_count" ).value;
+    let areaCount = document.getElementById( "input_area_count" ).value;
     let connectOffshoots = document.getElementById( "input_connect_offshoots" ).checked;
     let offshootDelay = document.getElementById( "input_offshoot_delay" ).value;
     let usesEmoji = document.getElementById( "input_use_emoji" ).checked;
@@ -12,7 +13,7 @@ let renderLevel = function( visualRefreshOnly )
     
     let levelContainer = document.getElementById( "level_container" );
     
-    let level = ReactDOM.render( <Level width={width} height={height} pathLength={pathLength} offshootCount={offshootCount} usesEmoji={usesEmoji} showPath={showPath} showsCost={showsCost}/>, levelContainer );
+    let level = ReactDOM.render( <Level width={width} height={height} pathLength={pathLength} offshootCount={offshootCount} usesEmoji={usesEmoji} showPath={showPath} showsCost={showsCost} areaCount={areaCount}/>, levelContainer );
     
     if ( !visualRefreshOnly )
     {
@@ -25,7 +26,9 @@ let renderLevel = function( visualRefreshOnly )
             setTimeout( () => addOffshoot( level, level.offshootGenerationId ), offshootDelay );
         }
         
-        level.setState( { data:LevelGenerator.createLevel( width, height, pathLength, offshootCount, connectOffshoots ) } );
+        //TODO - the delay thing won't work with the areas... maybe abstract that out so I can use it everywhere
+        
+        level.setState( { data:LevelGenerator.createLevel( width, height, pathLength, offshootCount, areaCount, connectOffshoots ) } );
     }
 };
 

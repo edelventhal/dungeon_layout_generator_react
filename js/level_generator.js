@@ -1,5 +1,10 @@
 let BOUND_OFFSHOOTS = false;
 
+let getXYKey = function( x, y )
+{
+    return x + "," + y;
+};
+
 let Coordinate = function( xOrCoordinate, y, cost )
 {
     if ( typeof( xOrCoordinate ) === "object" )
@@ -17,7 +22,7 @@ let Coordinate = function( xOrCoordinate, y, cost )
     
     this.getKey = function()
     {
-        return this.x + "," + this.y;
+        return getXYKey( this.x, this.y );
     };
     
     this.toString = function()
@@ -81,6 +86,13 @@ let ExpandableBounds = function( maxSize, minCoordinate, maxCoordinate )
     this.maxSize = maxSize.copy();
     this.min = minCoordinate ? minCoordinate.copy() : new Coordinate( 0, 0 );
     this.max = maxCoordinate ? maxCoordinate.copy() : new Coordinate( 0, 0 );
+    this.extentsCoordinates = {};
+    
+    for ( let dirIndex = 0; dirIndex < DIRECTION_DELTAS.length; dirIndex++ )
+    {
+        let delta = DIRECTION_DELTAS[dirIndex];
+        this.extentsCoordinates[delta.getKey()] = ( delta.x < 0 || delta.y < 0 ? minCoordinate : maxCoordinate ).copy();
+    }
     
     this.getSize = function()
     {
@@ -96,6 +108,28 @@ let ExpandableBounds = function( maxSize, minCoordinate, maxCoordinate )
     {
         this.min = new Coordinate( Math.min( this.min.x, coordinate.x ), Math.min( this.min.y, coordinate.y ) );
         this.max = new Coordinate( Math.max( this.max.x, coordinate.x ), Math.max( this.max.y, coordinate.y ) );
+        
+        
+        //TODO - definitely a better way to do this
+        if ( coordinate.x < this.extentsCoordinates["-1,0"].x )
+        {
+            this.extentsCoordinates["-1,0"] = coordinate.copy();
+        }
+        
+        if ( coordinate.x > this.extentsCoordinates["1,0"].x )
+        {
+            this.extentsCoordinates["1,0"] = coordinate.copy();
+        }
+        
+        if ( coordinate.y < this.extentsCoordinates["0,-1"].y )
+        {
+            this.extentsCoordinates["0,-1"] = coordinate.copy();
+        }
+        
+        if ( coordinate.y > this.extentsCoordinates["0,1"].y )
+        {
+            this.extentsCoordinates["0,1"] = coordinate.copy();
+        }
     };
     
     //given the maximum size passed in, do we contain or can we expand to contain the passed in coordinate?
@@ -192,6 +226,42 @@ let LevelGenData = function( startCoordinate, maxSize )
     
         //if that coordinate exists, this is a bad exit
         return this.roomExists( badCoordinate );
+    };
+    
+    //merges data from another LevelGenData into this one
+    this.merge = function( otherData )
+    {
+        this.timesMerged = this.timesMerged || 0;
+        
+        //choose a random direction to add this other area to
+        let directionIndex = Math.floor( Math.random() * DIRECTION_DELTAS.length ) % 2; //0 and 2 are top and right, this is hacky...
+        let direction = DIRECTION_DELTAS[ directionIndex ];
+        let oppositeDirecton = DIRECTION_DELTAS[ ( directionIndex + 2 ) % DIRECTION_DELTAS.length ];
+        let originalExtents = this.bounds.extentsCoordinates[ direction.getKey() ];
+        let oppositeExents = otherData.bounds.extentsCoordinates[ oppositeDirecton.getKey() ]
+        let offset = new Coordinate( originalExtents.x + direction.x - oppositeExents.x, originalExtents.y + direction.y - oppositeExents.y );
+        //let costOffset = this.level[originalExtents.getKey()].cost;
+        
+        for ( let y = otherData.bounds.min.y; y <= otherData.bounds.max.y; y++ )
+        {
+            for ( let x = otherData.bounds.min.x; x <= otherData.bounds.max.x; x++ )
+            {
+                let otherCoord = otherData.level[getXYKey(x,y)];
+                if ( otherCoord )
+                {
+                    otherCoord.x += offset.x;
+                    otherCoord.y += offset.y;
+                    
+                    if ( !this.roomExists( otherCoord ) )
+                    {
+                        otherCoord.cost = ( this.timesMerged + 1 );//costOffset;
+                        this.addToLevel( otherCoord );
+                    }
+                }
+            }
+        }
+        
+        this.timesMerged++;
     };
     
     this.toString = function()
@@ -414,37 +484,66 @@ let LevelGenerator =
         }
     },
 
-    createLevel:function( width, height, pathLength, offshootCount, allowAdjacentOffshoots )
+    createLevel:function( width, height, pathLength, offshootCount, areaCount, allowAdjacentOffshoots )
     {
-        //create the LevelGenData
-        let data = new LevelGenData( new Coordinate( 0, 0, 0 ), new Coordinate( width, height, pathLength ) );
-    
-        //begin with the startCoordinate
-        let coordinate = data.startCoordinate;
-
-        while ( data.pathStack.length <= pathLength )
-        {
-            let newCoordinate = this.addNewCoordinate( data, coordinate );
-                    
-            //in case for some reason we were unable to generate another path (a path that can't fit within the bounds),
-            //break out (which will use whatever the last successful path was for the endCoordinate)
-            if ( !newCoordinate )
-            {
-                console.log( "Could not create a valid path with these parameters." );
-                return new LevelGenData( data.startCoordinate, data.bounds.maxSize );
-            }
+        let fullData = null;
         
-            //assign the new coordinate to be the current one tracked
-            coordinate = newCoordinate;
+        for ( let areaIndex = 0; areaIndex < areaCount; areaIndex++ )
+        {
+            //create the LevelGenData
+            let data = new LevelGenData( new Coordinate( 0, 0, 0 ), new Coordinate( width, height, pathLength ) );
+    
+            //begin with the startCoordinate
+            let coordinate = data.startCoordinate;
+
+            while ( data.pathStack.length <= pathLength )
+            {
+                let newCoordinate = this.addNewCoordinate( data, coordinate );
+                    
+                //in case for some reason we were unable to generate another path (a path that can't fit within the bounds),
+                //break out (which will use whatever the last successful path was for the endCoordinate)
+                if ( !newCoordinate )
+                {
+                    console.log( "Could not create a valid path with these parameters." );
+                    return new LevelGenData( data.startCoordinate, data.bounds.maxSize );
+                }
+        
+                //assign the new coordinate to be the current one tracked
+                coordinate = newCoordinate;
+            }
+    
+            //the last room on the path is the end
+            data.endCoordinate = coordinate;
+    
+            //now we can make offshoot rooms
+            this.createOffshoots( data, offshootCount, allowAdjacentOffshoots );
+            
+            console.log( data.toString() );
+            console.log( "Extents are " + JSON.stringify( data.bounds.extentsCoordinates ) );
+            console.log( "Start is " + data.startCoordinate );
+    
+            //combine this with existing data
+            if ( fullData )
+            {
+                fullData.merge( data );
+            }
+            else
+            {
+                fullData = data;
+            }
         }
-    
-        //the last room on the path is the end
-        data.endCoordinate = coordinate;
-    
-        //now we can make offshoot rooms
-        this.createOffshoots( data, offshootCount, allowAdjacentOffshoots );
+        
+        console.log( "------------FULL-----------" );
+        console.log( fullData.toString() );
+        console.log( "Extents are " + JSON.stringify( fullData.bounds.extentsCoordinates ) );
+        console.log( "Start is " + fullData.startCoordinate );
     
         //finally, return the data
-        return data;
+        return fullData;
+    },
+    
+    continueCreatingLevel:function( data )
+    {
+        //TODO?
     }
 };
