@@ -164,7 +164,7 @@ let ExpandableBounds = function( maxSize, minCoordinate, maxCoordinate )
     };
 };
 
-let LevelGenData = function( startCoordinate, maxSize )
+let LevelGenData = function( startCoordinate, maxSize, targetPathLength )
 {
     this.startCoordinate = startCoordinate;
     this.endCoordinate = startCoordinate.copy();
@@ -174,6 +174,7 @@ let LevelGenData = function( startCoordinate, maxSize )
     this.pathLookup = {};
     this.boundsStack = [];
     this.open = [];
+    this.targetPathLength = targetPathLength;
     
     this.roomExists = function( coordinate )
     {
@@ -297,7 +298,7 @@ let LevelGenData = function( startCoordinate, maxSize )
     
     this.copy = function()
     {
-        let clone = new LevelGenData( this.startCoordinate, this.bounds.maxSize );
+        let clone = new LevelGenData( this.startCoordinate, this.bounds.maxSize, this.targetPathLength );
         clone.endCoordinate = this.endCoordinate.copy();
         clone.bounds = this.bounds.copy();
         
@@ -347,16 +348,21 @@ let LevelGenerator =
     {
         let validCoordinates = [];
         
+        const requiredDir = data.pathStack.length === data.targetPathLength ? 0 : -1
+        
         //Go through every neighbor and add it to the list if it's both valid and can exist next to its neighbors
         for ( let dirIndex = 0; dirIndex < DIRECTION_DELTAS.length; dirIndex++ )
         {
-            //add 1 to the cost for each of these, as they may be added to the level
-            let c = origin.createSum( DIRECTION_DELTAS[ dirIndex ], 1 );
-        
-            if ( this.isValidCoordinate( data, c, origin, ignoreBounds ) &&
-                 this.canCoordinateBeAdjacentToNeighbors( data, c, origin, ignoreBounds, allowAdjacentNeighbors ) )
+            if ( requiredDir < 0 || dirIndex === requiredDir )
             {
-                validCoordinates.push( c );
+                //add 1 to the cost for each of these, as they may be added to the level
+                let c = origin.createSum( DIRECTION_DELTAS[ dirIndex ], 1 );
+    
+                if ( this.isValidCoordinate( data, c, origin, ignoreBounds ) &&
+                     this.canCoordinateBeAdjacentToNeighbors( data, c, origin, ignoreBounds, allowAdjacentNeighbors ) )
+                {
+                    validCoordinates.push( c );
+                }
             }
         }
     
@@ -496,14 +502,14 @@ let LevelGenerator =
         for ( let areaIndex = 0; areaIndex < areaCount; areaIndex++ )
         {
             //create the LevelGenData
-            let data = new LevelGenData( new Coordinate( 0, 0, 0 ), new Coordinate( width, height, pathLength ) );
+            let data = new LevelGenData( new Coordinate( 0, 0, 0 ), new Coordinate( width, height, pathLength ), pathLength );
     
             //begin with the startCoordinate
             let coordinate = data.startCoordinate;
 
             while ( data.pathStack.length <= pathLength )
             {
-                let newCoordinate = this.addNewCoordinate( data, coordinate );
+                let newCoordinate = this.addNewCoordinate( data, coordinate, undefined, undefined, undefined );
                     
                 //in case for some reason we were unable to generate another path (a path that can't fit within the bounds),
                 //break out (which will use whatever the last successful path was for the endCoordinate)
